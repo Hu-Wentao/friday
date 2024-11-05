@@ -1,3 +1,5 @@
-langchain==0.0.300
-openai==0.28.0
-streamlit==1.27.0
+langchain
+llama-index
+openai
+streamlit
+python-dotenv
