@@ -59,7 +59,7 @@ def on_chat_submit():
 # ==== GUI
 st.set_page_config(layout='wide')
 
-st.title("ChatGPT-like")
+st.title("Friday Chat")
 
 with st.sidebar:
     st.selectbox("LLM", ["friday_0", "friday_1"], key="llm_api", index=0)
