@@ -1,5 +1,8 @@
 import streamlit as st
-from openai import OpenAI
+
+from src.shared_state import se_llm
+
+# ===
 
 st.title("💬 Chatbot")
 
@@ -10,8 +13,7 @@ for msg in st.session_state.messages:
     st.chat_message(msg["role"]).write(msg["content"])
 
 if prompt := st.chat_input():
-    client = OpenAI(api_key=st.secrets['llm']['friday_0']['API_KEY'],
-                    base_url=st.secrets['llm']['friday_0']['API_BASE'])
+    client = se_llm('friday_1')
     st.session_state.messages.append({"role": "user", "content": prompt})
     st.chat_message("user").write(prompt)
     response = client.chat.completions.create(model="gpt-4o-mini", messages=st.session_state.messages)
