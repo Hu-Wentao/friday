@@ -13,7 +13,7 @@ class Msg(TypedDict):
     # status: Literal['pending', 'error', 'complete', ‘editing’]  # pending只在stream模式下出现
 
 
-def s_messages(messages=None, append: Msg = None):
+def s_messages(messages=None, append: Msg = None) -> list[Msg]:
     if 'messages' not in st.session_state:
         st.session_state['messages']: list[Msg] = []
     if messages is not None:
@@ -23,14 +23,14 @@ def s_messages(messages=None, append: Msg = None):
     return st.session_state["messages"]
 
 
-def s_regen_flag(regen=None, consume=False):  # 是否重新生成回答
-    k = 'k_regen'
+def s_llm_gen(gen=None, consume=False):  # 是否重新生成回答
+    k = 'k_llm_gen'
     if k not in st.session_state:
         st.session_state[k] = False
-    if regen is not None:
-        st.session_state[k] = regen
+    if gen is not None:
+        st.session_state[k] = gen
     rst = st.session_state[k]
-    if consume:  # 消费regen 标志
+    if consume:  # 消费 标志
         st.session_state[k] = False
     return rst
 
@@ -47,7 +47,7 @@ def on_chat_msg_menu_change():
                 pass  # todo
                 # st.session_state.messages[int(s[1:])] = {"role": "user", "content": st.session_state.messages[int(s[1:])]["content"]}
             elif v == '🔄':
-                s_regen_flag(regen=True)
+                s_llm_gen(gen=True)
                 pass
             st.session_state[k] = ''
 
@@ -60,7 +60,7 @@ def get_llm_rsp(llm=None, model=None, msg_ls=None, stream=True):
     if llm is None:
         llm = get_llm()
     if model is None:
-        model = st.session_state["openai_model"]
+        model = st.session_state["llm_model"]
     if msg_ls is None:
         msg_ls = [{
             "role": m["role"],
@@ -82,6 +82,11 @@ def get_avatar_by_role(role: str):
     elif role == "system":
         return "🤖"
 
+def on_chat_submit():
+    k = 'chat_input'
+    prompt = st.session_state[k]
+    s_messages(append=Msg(role="user", content=prompt)) # 将刷新UI
+    s_llm_gen(gen=True)
 
 # ==== GUI
 
@@ -99,9 +104,9 @@ def build_stream_chat_msg(role: Literal['user', 'assistant'], avatar: str,
     with st.chat_message(role, avatar=avatar):
         col = st.columns([14, 1])
         rsp = col[0].write_stream(st_content)
-        s_messages(append=Msg(role=role, content=rsp, ))
+        msg_len = len(s_messages(append=Msg(role=role, content=rsp)))  # noqa todo 动态刷新,可以不用write_stream
         if idx is None:
-            idx = len(st.session_state.messages) - 1
+            idx = msg_len - 1
         col[1].selectbox(key=f'chat_msg_menu#{idx}', label='Menu', options=['', '❌', '📝', '🔄'],
                          label_visibility='collapsed', on_change=on_chat_msg_menu_change)
     pass
@@ -119,7 +124,7 @@ def main():
         # claude-3-haiku-20240307   (0.000198, 0.00099)   #
         # claude-3-5-sonnet-20241022(0.002376, 0.01188)
         # claude-3-opus-20240229    (0.011880, 0.05940)
-        st.selectbox(key="openai_model", index=0, label="Model", options=[
+        st.selectbox(key="llm_model", index=0, label="Model", options=[
             "gpt-4o-mini", "gpt-4o",
             "claude-3-haiku-20240307", "claude-3-5-sonnet-20241022", "claude-3-opus-20240229", ], )
 
@@ -131,21 +136,10 @@ def main():
             idx=i)
 
     # 用户输入
-    if prompt := st.chat_input("What is up?", key="chat_input"):
-        s_messages(append={"role": "user", "content": prompt})
-        build_chat_msg(
-            role="user",
-            avatar=get_avatar_by_role('user'),
-            content=prompt,
-            idx=len(st.session_state.messages) - 1)
-        build_stream_chat_msg(
-            role="assistant",
-            avatar=get_avatar_by_role('assistant'),
-            st_content=get_llm_rsp(),
-            idx=None)
+    st.chat_input("What is up?", key="chat_input", on_submit=on_chat_submit)
 
     # 重新生成
-    if s_regen_flag(consume=True):
+    if s_llm_gen(consume=True):
         build_stream_chat_msg(
             role="assistant",
             avatar=get_avatar_by_role('assistant'),
