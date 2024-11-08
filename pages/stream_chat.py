@@ -1,3 +1,5 @@
+from typing import Literal, Callable, Any, Generator, Iterable, TypedDict
+
 import streamlit as st
 from openai import OpenAI
 
@@ -5,9 +7,15 @@ from src.shared_state import se_llm
 
 
 # === state
-def s_messages(messages=None, append: dict = None):
+class Msg(TypedDict):
+    role: Literal['user', 'assistant', 'system']
+    content: str
+    # status: Literal['pending', 'error', 'complete', ‘editing’]  # pending只在stream模式下出现
+
+
+def s_messages(messages=None, append: Msg = None):
     if 'messages' not in st.session_state:
-        st.session_state['messages'] = []
+        st.session_state['messages']: list[Msg] = []
     if messages is not None:
         st.session_state["messages"] = messages
     if append is not None:
@@ -75,13 +83,30 @@ def get_avatar_by_role(role: str):
         return "🤖"
 
 
-def on_chat_submit():
-    k = 'chat_input'
-    msg = st.session_state[k]
-    # todo
-
-
 # ==== GUI
+
+def build_chat_msg(role: Literal['user', 'assistant'], avatar: str, content: str, idx: int):
+    with st.chat_message(role, avatar=avatar):
+        col = st.columns([14, 1])
+        col[0].markdown(content)
+        col[1].selectbox(key=f'chat_msg_menu#{idx}', label='Menu', options=['', '❌', '📝', '🔄'],
+                         label_visibility='collapsed', on_change=on_chat_msg_menu_change)
+    pass
+
+
+def build_stream_chat_msg(role: Literal['user', 'assistant'], avatar: str,
+                          st_content: Callable[..., Any] | Generator[Any, Any, Any] | Iterable[Any], idx: int | None):
+    with st.chat_message(role, avatar=avatar):
+        col = st.columns([14, 1])
+        rsp = col[0].write_stream(st_content)
+        s_messages(append=Msg(role=role, content=rsp, ))
+        if idx is None:
+            idx = len(st.session_state.messages) - 1
+        col[1].selectbox(key=f'chat_msg_menu#{idx}', label='Menu', options=['', '❌', '📝', '🔄'],
+                         label_visibility='collapsed', on_change=on_chat_msg_menu_change)
+    pass
+
+
 def main():
     st.set_page_config(layout='wide')
 
@@ -99,27 +124,33 @@ def main():
             "claude-3-haiku-20240307", "claude-3-5-sonnet-20241022", "claude-3-opus-20240229", ], )
 
     for i, message in enumerate(st.session_state.messages):
-        with st.chat_message(message["role"], avatar=get_avatar_by_role(message["role"])):
-            col = st.columns([14, 1])
-            col[0].markdown(message["content"])
-            col[1].selectbox(key=f'chat_msg_menu#{i}', label='Menu', options=['', '❌', '📝', '🔄'],
-                             label_visibility='collapsed', on_change=on_chat_msg_menu_change)
+        build_chat_msg(
+            role=message["role"],
+            avatar=get_avatar_by_role(message["role"]),
+            content=message["content"],
+            idx=i)
 
     # 用户输入
-    if prompt := st.chat_input("What is up?", key="chat_input", on_submit=on_chat_submit):
+    if prompt := st.chat_input("What is up?", key="chat_input"):
         s_messages(append={"role": "user", "content": prompt})
-        with st.chat_message("user", avatar=get_avatar_by_role('user')):
-            st.markdown(prompt)
-
-        with st.chat_message("assistant", avatar=get_avatar_by_role('assistant')):
-            response = st.write_stream(get_llm_rsp())
-        s_messages(append={"role": "assistant", "content": response})
+        build_chat_msg(
+            role="user",
+            avatar=get_avatar_by_role('user'),
+            content=prompt,
+            idx=len(st.session_state.messages) - 1)
+        build_stream_chat_msg(
+            role="assistant",
+            avatar=get_avatar_by_role('assistant'),
+            st_content=get_llm_rsp(),
+            idx=None)
 
     # 重新生成
     if s_regen_flag(consume=True):
-        with st.chat_message("assistant", avatar=get_avatar_by_role('assistant')):
-            response = st.write_stream(get_llm_rsp())
-        s_messages(append={"role": "assistant", "content": response})
+        build_stream_chat_msg(
+            role="assistant",
+            avatar=get_avatar_by_role('assistant'),
+            st_content=get_llm_rsp(),
+            idx=None)
 
 
 if __name__ == '__main__':

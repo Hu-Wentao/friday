@@ -3,3 +3,4 @@ llama-index
 openai
 streamlit
 python-dotenv
+loguru
