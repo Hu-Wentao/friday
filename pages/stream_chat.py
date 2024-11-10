@@ -53,7 +53,7 @@ def on_chat_msg_menu_change():
 
 
 def get_llm() -> OpenAI:
-    return se_llm(st.session_state["llm_api"])
+    return se_llm(st.session_state["llm_api"], st.session_state['use_cn'])
 
 
 def get_llm_rsp(llm=None, model=None, msg_ls=None, stream=True):
@@ -82,11 +82,13 @@ def get_avatar_by_role(role: str):
     elif role == "system":
         return "🤖"
 
+
 def on_chat_submit():
     k = 'chat_input'
     prompt = st.session_state[k]
-    s_messages(append=Msg(role="user", content=prompt)) # 将刷新UI
+    s_messages(append=Msg(role="user", content=prompt))  # 将刷新UI
     s_llm_gen(gen=True)
+
 
 # ==== GUI
 
@@ -118,6 +120,8 @@ def main():
     st.title("Friday Chat")
 
     with st.sidebar:
+        st.toggle('国内', key='use_cn', value=True)
+
         st.selectbox("LLM", ["friday_0", "friday_1"], key="llm_api", index=0)
         # gpt-4o-mini               (0.0000135, 0.000054) # Azure(0.0000675, 0.00027)
         # gpt-4o                    (0.000225 , 0.000900) # Azure(0.0011250, 0.004500)
