@@ -1,6 +1,6 @@
-langchain
-llama-index
+#langchain
+#llama-index
 openai
 streamlit
-python-dotenv
+#python-dotenv
 loguru
