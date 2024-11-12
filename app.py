@@ -1,6 +1,6 @@
 import streamlit as st
 
-from pages import stream_chat
+from src.pages import stream_chat
 
 
 def welcome_page():

@@ -117,7 +117,7 @@ def build_stream_chat_msg(role: Literal['user', 'assistant'], avatar: str,
 def page():
     s_messages()
     # ===
-    st.title("Friday Chat")
+    st.title("FridayAI Chat")
 
     with st.sidebar:
         st.toggle('国内', key='use_cn', value=True)
