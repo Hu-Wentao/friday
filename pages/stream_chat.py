@@ -114,9 +114,9 @@ def build_stream_chat_msg(role: Literal['user', 'assistant'], avatar: str,
     pass
 
 
-def main():
-    st.set_page_config(layout='wide')
-
+def page():
+    s_messages()
+    # ===
     st.title("Friday Chat")
 
     with st.sidebar:
@@ -152,6 +152,4 @@ def main():
 
 
 if __name__ == '__main__':
-    s_messages()
-    # ===
-    main()
+    page()
