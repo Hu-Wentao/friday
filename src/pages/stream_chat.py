@@ -5,15 +5,19 @@ from openai import OpenAI
 
 from src.shared_state import se_llm
 
-
 # === state
+MSG_STATUS = Literal['pending', 'error', 'complete', 'editing']
+ROLE_TP = Literal['user', 'assistant', 'system']
+
+
 class Msg(TypedDict):
-    role: Literal['user', 'assistant', 'system']
+    role: ROLE_TP
     content: str
-    # status: Literal['pending', 'error', 'complete', ‘editing’]  # pending只在stream模式下出现
+    status: MSG_STATUS  # pending只在stream模式下出现
 
 
 def s_messages(messages=None, append: Msg = None) -> list[Msg]:
+    """msg状态 的数据结构为 list[Msg]"""
     if 'messages' not in st.session_state:
         st.session_state['messages']: list[Msg] = []
     if messages is not None:
@@ -36,18 +40,49 @@ def s_llm_gen(gen=None, consume=False):  # 是否重新生成回答
 
 
 # === 前端方法
+def s_msg_pop_chat(idx: int):
+    st.session_state.messages.pop(idx)
+
+
+def s_msg_edit_chat(idx: int, updating: str = None):
+    """将某条消息标记为 编辑 状态"""
+    cp = []
+    for i, msg in enumerate(s_messages()):
+        msg: Msg
+        if i == idx:
+            if updating is None:
+                msg['status'] = "editing"
+            else:
+                msg['content'] = updating
+                msg['status'] = "complete"
+        cp.append(msg)
+
+
+def s_msg_regen(idx: int, updating: str = None):
+    """重新生成"""
+    if updating is not None:
+        s_msg_edit_chat(idx, updating)
+
+    cp = []
+    for i, msg in enumerate(s_messages()):
+        if i <= idx:
+            cp.append(msg)
+    s_messages(cp)
+    s_llm_gen(gen=True)
+
+
 def on_chat_msg_menu_change():
     for k, v in st.session_state.items():
         if k.startswith("chat_msg_menu#") and v != '':
             # '❌', '📝', '🔄'
             if v == '❌':
                 k_id = int(k.split('#')[1])
-                st.session_state.messages.pop(k_id)
+                s_msg_pop_chat(k_id)
             elif v == '📝':
                 pass  # todo
                 # st.session_state.messages[int(s[1:])] = {"role": "user", "content": st.session_state.messages[int(s[1:])]["content"]}
             elif v == '🔄':
-                s_llm_gen(gen=True)
+                s_msg_regen()
                 pass
             st.session_state[k] = ''
 
@@ -74,7 +109,19 @@ def get_llm_rsp(llm=None, model=None, msg_ls=None, stream=True):
     )
 
 
-def get_avatar_by_role(role: str):
+def on_chat_submit():
+    k = 'chat_input'
+    prompt = st.session_state[k]
+    s_messages(append=Msg(
+        role="user",
+        content=prompt,
+        status='complete'
+    ))  # 将刷新UI
+    s_llm_gen(gen=True)
+
+
+# ==== GUI
+def build_avatar_by_role(role: str):
     if role == "user":
         return "👨‍💻"
     elif role == "assistant":
@@ -83,21 +130,21 @@ def get_avatar_by_role(role: str):
         return "🤖"
 
 
-def on_chat_submit():
-    k = 'chat_input'
-    prompt = st.session_state[k]
-    s_messages(append=Msg(role="user", content=prompt))  # 将刷新UI
-    s_llm_gen(gen=True)
-
-
-# ==== GUI
-
-def build_chat_msg(role: Literal['user', 'assistant'], avatar: str, content: str, idx: int):
+def build_chat_msg(role: ROLE_TP, avatar: str, content: str, status: MSG_STATUS, idx: int):
     with st.chat_message(role, avatar=avatar):
-        col = st.columns([14, 1])
-        col[0].markdown(content)
-        col[1].selectbox(key=f'chat_msg_menu#{idx}', label='Menu', options=['', '❌', '📝', '🔄'],
-                         label_visibility='collapsed', on_change=on_chat_msg_menu_change)
+        _content = st.empty()
+        col = st.columns([10, 1, 1, 1])
+        if status == 'complete':
+            _content.markdown(content)
+            col[1].button(":material/edit:", key=f'btn_edit#{idx}', on_click=lambda: s_msg_edit_chat(idx, ))
+            col[2].button(":material/refresh:", key=f'btn_refresh#{idx}', on_click=lambda: s_msg_regen(idx))
+            col[3].button(':material/close:', key=f'btn_delete#{idx}', on_click=lambda: s_msg_pop_chat(idx))
+        elif status == 'editing':
+            updating = _content.text_area(f'{role}', value=content)
+            col[1].button(":material/check:", key=f'btn_edit#{idx}', on_click=lambda: s_msg_edit_chat(idx, updating))
+            col[2].button(":material/refresh:", key=f'btn_refresh#{idx}', on_click=lambda: s_msg_regen(idx, updating))
+            col[3].button(':material/close:', key=f'btn_delete#{idx}', on_click=lambda: s_msg_pop_chat(idx))
+
     pass
 
 
@@ -105,13 +152,8 @@ def build_stream_chat_msg(role: Literal['user', 'assistant'], avatar: str,
                           st_content: Callable[..., Any] | Generator[Any, Any, Any] | Iterable[Any], idx: int | None):
     with st.chat_message(role, avatar=avatar):
         col = st.columns([10, 1])
-        rsp = col[0].write_stream(st_content)
-        msg_len = len(s_messages(append=Msg(role=role, content=rsp)))  # noqa todo 动态刷新,可以不用write_stream
-        if idx is None:
-            idx = msg_len - 1
-        col = st.columns([10, 1])
-        col[1].selectbox(key=f'chat_msg_menu#{idx}', label='Menu', options=['', '❌', '📝', '🔄'],
-                         label_visibility='collapsed', on_change=on_chat_msg_menu_change)
+        rsp = col[0].write_stream(st_content)  # 阻塞 # todo 动态刷新,可以不用write_stream
+        s_messages(append=Msg(role=role, content=rsp, status='complete'))
     pass
 
 
@@ -133,11 +175,15 @@ def page():
             "gpt-4o-mini", "gpt-4o",
             "claude-3-haiku-20240307", "claude-3-5-sonnet-20241022", "claude-3-opus-20240229", ], )
 
-    for i, message in enumerate(st.session_state.messages):
+        # st.write(st.session_state) # debug
+
+    for i, msg in enumerate(s_messages()):
+        msg: Msg
         build_chat_msg(
-            role=message["role"],
-            avatar=get_avatar_by_role(message["role"]),
-            content=message["content"],
+            role=msg["role"],
+            avatar=build_avatar_by_role(msg["role"]),
+            content=msg["content"],
+            status=msg.get('status', 'complete'),
             idx=i)
 
     # 用户输入
@@ -147,7 +193,7 @@ def page():
     if s_llm_gen(consume=True):
         build_stream_chat_msg(
             role="assistant",
-            avatar=get_avatar_by_role('assistant'),
+            avatar=build_avatar_by_role('assistant'),
             st_content=get_llm_rsp(),
             idx=None)
 
