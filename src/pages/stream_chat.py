@@ -104,11 +104,12 @@ def build_chat_msg(role: Literal['user', 'assistant'], avatar: str, content: str
 def build_stream_chat_msg(role: Literal['user', 'assistant'], avatar: str,
                           st_content: Callable[..., Any] | Generator[Any, Any, Any] | Iterable[Any], idx: int | None):
     with st.chat_message(role, avatar=avatar):
-        col = st.columns([14, 1])
+        col = st.columns([10, 1])
         rsp = col[0].write_stream(st_content)
         msg_len = len(s_messages(append=Msg(role=role, content=rsp)))  # noqa todo 动态刷新,可以不用write_stream
         if idx is None:
             idx = msg_len - 1
+        col = st.columns([10, 1])
         col[1].selectbox(key=f'chat_msg_menu#{idx}', label='Menu', options=['', '❌', '📝', '🔄'],
                          label_visibility='collapsed', on_change=on_chat_msg_menu_change)
     pass
@@ -120,9 +121,9 @@ def page():
     st.title("FridayAI Chat")
 
     with st.sidebar:
-        st.toggle('国内', key='use_cn', value=True)
+        st.toggle('国内', key='use_cn', value=False)
 
-        st.selectbox("LLM", ["friday_0", "friday_1"], key="llm_api", index=0)
+        st.selectbox("LLM", ["friday_0", "friday_1"], key="llm_api", index=1)
         # gpt-4o-mini               (0.0000135, 0.000054) # Azure(0.0000675, 0.00027)
         # gpt-4o                    (0.000225 , 0.000900) # Azure(0.0011250, 0.004500)
         # claude-3-haiku-20240307   (0.000198, 0.00099)   #
