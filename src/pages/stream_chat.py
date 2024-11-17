@@ -71,22 +71,6 @@ def s_msg_regen(idx: int, updating: str = None):
     s_llm_gen(gen=True)
 
 
-def on_chat_msg_menu_change():
-    for k, v in st.session_state.items():
-        if k.startswith("chat_msg_menu#") and v != '':
-            # '❌', '📝', '🔄'
-            if v == '❌':
-                k_id = int(k.split('#')[1])
-                s_msg_pop_chat(k_id)
-            elif v == '📝':
-                pass  # todo
-                # st.session_state.messages[int(s[1:])] = {"role": "user", "content": st.session_state.messages[int(s[1:])]["content"]}
-            elif v == '🔄':
-                s_msg_regen()
-                pass
-            st.session_state[k] = ''
-
-
 def get_llm() -> OpenAI:
     return se_llm(st.session_state["llm_api"], st.session_state['use_cn'])
 
