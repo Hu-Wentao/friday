@@ -2,3 +2,7 @@
 /.streamlit/
 /.env
 /info.md
+.venv
+# rag
+dickens
+/test/nano_graphrag_cache_llm_TEST/

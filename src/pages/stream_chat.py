@@ -44,17 +44,17 @@ def s_msg_pop_chat(idx: int):
     st.session_state.messages.pop(idx)
 
 
-def s_msg_edit_chat(idx: int, updating: str = None):
+def s_msg_edit_chat(idx: int, n_content: str = None, n_status: MSG_STATUS = None):
     """将某条消息标记为 编辑 状态"""
     cp = []
     for i, msg in enumerate(s_messages()):
         msg: Msg
         if i == idx:
-            if updating is None:
-                msg['status'] = "editing"
+            if n_content is None:
+                msg['status']: MSG_STATUS = n_status if n_status else "editing"  # noqa
             else:
-                msg['content'] = updating
-                msg['status'] = "complete"
+                msg['content'] = n_content
+                msg['status']: MSG_STATUS = n_status if n_status else "complete"  # noqa
         cp.append(msg)
 
 
@@ -122,14 +122,17 @@ def build_chat_msg(role: ROLE_TP, avatar: str, content: str, status: MSG_STATUS,
             _content.markdown(content)
             col[1].button(":material/edit:", key=f'btn_edit#{idx}', on_click=lambda: s_msg_edit_chat(idx, ))
             col[2].button(":material/refresh:", key=f'btn_refresh#{idx}', on_click=lambda: s_msg_regen(idx))
-            col[3].button(':material/close:', key=f'btn_delete#{idx}', on_click=lambda: s_msg_pop_chat(idx))
+            # 删除消息
+            col[3].button(':material/delete:', key=f'btn_delete#{idx}', on_click=lambda: s_msg_pop_chat(idx))
         elif status == 'editing':
             updating = _content.text_area(f'{role}', value=content)
             col[1].button(":material/check:", key=f'btn_edit#{idx}', on_click=lambda: s_msg_edit_chat(idx, updating))
             col[2].button(":material/refresh:", key=f'btn_refresh#{idx}', on_click=lambda: s_msg_regen(idx, updating))
-            col[3].button(':material/close:', key=f'btn_delete#{idx}', on_click=lambda: s_msg_pop_chat(idx))
+            # 取消编辑
+            col[3].button(':material/close:', key=f'btn_delete#{idx}',
+                          on_click=lambda: s_msg_edit_chat(idx, n_status='complete'))
 
-    pass
+            pass
 
 
 def build_stream_chat_msg(role: Literal['user', 'assistant'], avatar: str,
