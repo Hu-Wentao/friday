@@ -1,6 +1,6 @@
 import streamlit as st
 
-from src.pages import stream_chat, rag_page
+from src.pages import stream_chat
 
 
 def welcome_page():
@@ -40,7 +40,7 @@ def entrance():
     st.navigation(
         [
             st.Page(stream_chat.page, title='Chat', icon='🏠', default=True, ),
-            st.Page(rag_page.page, title='Rag', icon='', url_path='rag'),
+            # st.Page(rag_page.page, title='Rag', icon='', url_path='rag'),
         ] +
         ([
              # st.Page(test_page.page, title='_DEV_', icon=None, url_path='test'),
