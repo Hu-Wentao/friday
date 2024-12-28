@@ -4,3 +4,4 @@ openai
 streamlit
 #python-dotenv
 loguru
+git+https://github.com/Hu-Wentao/st_tools.git

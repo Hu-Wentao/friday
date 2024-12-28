@@ -2,6 +2,7 @@ from typing import Literal, Callable, Any, Generator, Iterable, TypedDict
 
 import streamlit as st
 from openai import OpenAI
+from st_tools import tool_s_state
 
 from src.shared_state import se_llm
 
@@ -16,15 +17,15 @@ class Msg(TypedDict):
     status: MSG_STATUS  # pending只在stream模式下出现
 
 
-def s_messages(messages=None, append: Msg = None) -> list[Msg]:
+def s_messages(messages=None, append: Msg = None, force_update=False) -> list[Msg]:
     """msg状态 的数据结构为 list[Msg]"""
-    if 'messages' not in st.session_state:
-        st.session_state['messages']: list[Msg] = []
+    update = None
     if messages is not None:
-        st.session_state["messages"] = messages
+        update = messages
     if append is not None:
-        st.session_state["messages"].append(append)
-    return st.session_state["messages"]
+        update = s_messages()
+        update.append(append)
+    return tool_s_state(update=update, k="s_messages", init=lambda :[], force_update=force_update)
 
 
 def s_llm_gen(gen=None, consume=False):  # 是否重新生成回答
@@ -63,11 +64,8 @@ def s_msg_regen(idx: int, updating: str = None):
     if updating is not None:
         s_msg_edit_chat(idx, updating)
 
-    cp = []
-    for i, msg in enumerate(s_messages()):
-        if i <= idx:
-            cp.append(msg)
-    s_messages(cp)
+    s_messages([msg for i, msg in enumerate(s_messages())
+                if i < idx])
     s_llm_gen(gen=True)
 
 
@@ -85,7 +83,7 @@ def get_llm_rsp(llm=None, model=None, msg_ls=None, stream=True):
             "role": m["role"],
             "content": m["content"],
             # "name": m.get("name")
-        } for m in st.session_state.messages]
+        } for m in s_messages()]
     return llm.chat.completions.create(
         model=model,
         messages=msg_ls,
@@ -103,6 +101,10 @@ def on_chat_submit():
     ))  # 将刷新UI
     s_llm_gen(gen=True)
 
+
+def on_new_chat():
+    """清理聊天记录"""
+    s_messages([],force_update=True)
 
 # ==== GUI
 def build_avatar_by_role(role: str):
@@ -150,6 +152,7 @@ def page():
     st.title("FridayAI Chat")
 
     with st.sidebar:
+        st.button("新建", on_click=on_new_chat)
         st.toggle('国内', key='use_cn', value=False)
 
         st.selectbox("LLM", ["friday_0", "friday_1"], key="llm_api", index=1)
